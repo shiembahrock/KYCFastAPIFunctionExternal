@@ -27,10 +27,10 @@ jobs:
           cp main.py build/
           cp lambda_function.py build/
           cd build
-          zip -r ../lambda-package.zip .
+          zip -r ../lambda-external-package.zip .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lambda-package
-          path: lambda-package.zip
+          name: lambda-external-package
+          path: lambda-external-package.zip
