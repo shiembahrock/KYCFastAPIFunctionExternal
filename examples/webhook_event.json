@@ -1,0 +1,11 @@
+{
+  "resource": "/stripe/webhook",
+  "path": "/stripe/webhook",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "stripe-signature": "t=1700000000,v1=REPLACE_WITH_TEST_SIGNATURE"
+  },
+  "isBase64Encoded": false,
+  "body": "{\"id\":\"evt_test_webhook\",\"object\":\"event\",\"type\":\"checkout.session.completed\",\"data\":{\"object\":{\"id\":\"cs_test_123\",\"object\":\"checkout.session\",\"amount_total\":1999,\"currency\":\"usd\"}}}"
+}

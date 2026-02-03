@@ -1,0 +1,11 @@
+{
+  "amount": 1999,
+  "currency": "usd",
+  "success_url": "https://example.com/success",
+  "cancel_url": "https://example.com/cancel",
+  "product_name": "Demo Product",
+  "customer_email": "customer@example.com",
+  "metadata": {
+    "order_id": "ORDER-123"
+  }
+}
