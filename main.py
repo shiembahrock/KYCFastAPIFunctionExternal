@@ -141,19 +141,23 @@ def create_checkout_session(event: Dict[str, Any]) -> Dict[str, Any]:
 
         url = "https://api.stripe.com/v1/checkout/sessions"
         data = urllib.parse.urlencode(form).encode("utf-8")
+        print('data : ')
+        print(data)
         req = urllib.request.Request(url, data=data, method="POST")
         req.add_header("Authorization", f"Bearer {STRIPE_API_KEY}")
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
 
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with urllib.request.urlopen(req, timeout=120) as resp:            
             response_body = resp.read().decode("utf-8")
             session = json.loads(response_body)
+            print(json.dumps(session))
     except Exception as exc:
+        print("checkout: stripe error")
         logger.exception("checkout: stripe error")
         return _http_response(500, {"error": "Stripe error", "detail": str(exc)})
 
     logger.info("checkout: created session %s", session.get("id"))
-    return _http_response(200, {"session": json.dumps(session)})
+    return _http_response(200, {"session": session})
 
 
 def handle_webhook(event: Dict[str, Any]) -> Dict[str, Any]:
