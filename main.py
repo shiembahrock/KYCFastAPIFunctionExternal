@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import os
 import logging
+import urllib.parse
+import urllib.request
 from typing import Any, Dict
 
 import boto3
@@ -62,6 +64,17 @@ def create_checkout_session(event: Dict[str, Any]) -> Dict[str, Any]:
     payload = _parse_event_body(event)
     amount = payload.get("amount")
     if amount is None:
+        amount = payload.get("line_items[0][price_data][unit_amount]")
+    currency = payload.get("currency")
+    if currency is None:
+        currency = payload.get("line_items[0][price_data][currency]")
+    product_name = payload.get("product_name")
+    if product_name is None:
+        product_name = payload.get("line_items[0][price_data][product_data][name]")
+    quantity = payload.get("quantity")
+    if quantity is None:
+        quantity = payload.get("line_items[0][quantity]")
+    if amount is None:
         logger.warning("checkout: missing amount")
         return _http_response(400, {"error": "Missing required parameter: amount"})
 
@@ -75,7 +88,7 @@ def create_checkout_session(event: Dict[str, Any]) -> Dict[str, Any]:
         logger.warning("checkout: amount <= 0")
         return _http_response(400, {"error": "amount must be greater than 0"})
 
-    currency = payload.get("currency") or DEFAULT_CURRENCY
+    currency = currency or DEFAULT_CURRENCY
     success_url = payload.get("success_url")
     cancel_url = payload.get("cancel_url")
     if not success_url or not cancel_url:
@@ -85,43 +98,62 @@ def create_checkout_session(event: Dict[str, Any]) -> Dict[str, Any]:
     metadata = payload.get("metadata") or {}
     mode = payload.get("mode") or "payment"
     line_items = payload.get("line_items")
+    payment_method_types = payload.get("payment_method_types")
+    if not payment_method_types:
+        payment_method_types = [
+            payload.get("payment_method_types[0]"),
+            payload.get("payment_method_types[1]"),
+            payload.get("payment_method_types[2]"),
+        ]
+        payment_method_types = [p for p in payment_method_types if p]
 
     try:
-        if not line_items:
-            line_items = [
-                {
-                    "quantity": 1,
-                    "price_data": {
-                        "currency": currency,
-                        "unit_amount": amount_int,
-                        "product_data": {
-                            "name": payload.get("product_name", "Stripe Checkout"),
-                        },
-                    },
-                }
-            ]
+        form: Dict[str, Any] = {
+            "success_url": success_url,
+            "cancel_url": cancel_url,
+            "mode": mode,
+        }
 
-        session = stripe.checkout.Session.create(
-            mode=mode,
-            success_url=success_url,
-            cancel_url=cancel_url,
-            line_items=line_items,
-            metadata=metadata,
-            customer_email=payload.get("customer_email"),
-        )
+        for key, value in payload.items():
+            if key.startswith("line_items[") or key.startswith("payment_method_types[") or key.startswith("metadata[") or key.startswith("payment_intent_data["):
+                form[key] = value
+
+        if "line_items[0][price_data][currency]" not in form:
+            form["line_items[0][price_data][currency]"] = currency
+        if "line_items[0][price_data][product_data][name]" not in form:
+            form["line_items[0][price_data][product_data][name]"] = product_name or "Stripe Checkout"
+        if "line_items[0][price_data][unit_amount]" not in form:
+            form["line_items[0][price_data][unit_amount]"] = str(amount_int)
+        if "line_items[0][quantity]" not in form:
+            form["line_items[0][quantity]"] = str(int(quantity) if quantity is not None else 1)
+
+        customer_email = payload.get("customer_email")
+        if customer_email:
+            form["customer_email"] = customer_email
+
+        if metadata:
+            for meta_key, meta_value in metadata.items():
+                form.setdefault(f"metadata[{meta_key}]", meta_value)
+
+        if payment_method_types:
+            for idx, method in enumerate(payment_method_types):
+                form.setdefault(f"payment_method_types[{idx}]", method)
+
+        url = "https://api.stripe.com/v1/checkout/sessions"
+        data = urllib.parse.urlencode(form).encode("utf-8")
+        req = urllib.request.Request(url, data=data, method="POST")
+        req.add_header("Authorization", f"Bearer {STRIPE_API_KEY}")
+        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            response_body = resp.read().decode("utf-8")
+            session = json.loads(response_body)
     except Exception as exc:
         logger.exception("checkout: stripe error")
         return _http_response(500, {"error": "Stripe error", "detail": str(exc)})
 
-    logger.info("checkout: created session %s", session.id)
-    return _http_response(
-        200,
-        {
-            "checkout_session_id": session.id,
-            "checkout_url": session.url,
-            "status": session.status,
-        },
-    )
+    logger.info("checkout: created session %s", session.get("id"))
+    return _http_response(200, {"session": json.dumps(session)})
 
 
 def handle_webhook(event: Dict[str, Any]) -> Dict[str, Any]:
