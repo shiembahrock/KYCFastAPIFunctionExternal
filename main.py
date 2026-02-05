@@ -1,20 +1,23 @@
 from __future__ import annotations
-
 import json
 import os
 import logging
 import urllib.parse
 import urllib.request
 from typing import Any, Dict
-
 import boto3
 import stripe
-
 
 STRIPE_API_KEY = os.getenv("STRIPE_API_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 DEFAULT_CURRENCY = os.getenv("STRIPE_DEFAULT_CURRENCY", "usd")
 WEBHOOK_TARGET_LAMBDA_ARN = os.getenv("WEBHOOK_TARGET_LAMBDA_ARN", "")
+STRIPE_API_KEY = os.getenv("STRIPE_API_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+DEFAULT_CURRENCY = os.getenv("STRIPE_DEFAULT_CURRENCY", "usd")
+WEBHOOK_TARGET_LAMBDA_ARN = os.getenv("WEBHOOK_TARGET_LAMBDA_ARN", "")
+SES_FROM_EMAIL = os.getenv("SES_FROM_EMAIL", "")
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 # Note: If this Lambda runs inside a VPC, it needs outbound access to the Lambda
 # API to invoke another function. Use a NAT Gateway or a VPC Interface Endpoint
 # for Lambda (com.amazonaws.<region>.lambda). The target Lambda can be in or out
@@ -27,14 +30,12 @@ logger = logging.getLogger(__name__)
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
 
-
 def _http_response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "statusCode": status_code,
         "headers": {"Content-Type": "application/json"},
         "body": json.dumps(body),
     }
-
 
 def _parse_event_body(event: Dict[str, Any]) -> Dict[str, Any]:
     if "body" not in event:
@@ -53,7 +54,6 @@ def _parse_event_body(event: Dict[str, Any]) -> Dict[str, Any]:
         return json.loads(body)
     except json.JSONDecodeError:
         return {}
-
 
 def create_checkout_session(event: Dict[str, Any]) -> Dict[str, Any]:
     logger.info("checkout: start")
@@ -141,8 +141,7 @@ def create_checkout_session(event: Dict[str, Any]) -> Dict[str, Any]:
 
         url = "https://api.stripe.com/v1/checkout/sessions"
         data = urllib.parse.urlencode(form).encode("utf-8")
-        print('data : ')
-        print(data)
+        
         req = urllib.request.Request(url, data=data, method="POST")
         req.add_header("Authorization", f"Bearer {STRIPE_API_KEY}")
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
@@ -150,17 +149,14 @@ def create_checkout_session(event: Dict[str, Any]) -> Dict[str, Any]:
         with urllib.request.urlopen(req, timeout=120) as resp:            
             response_body = resp.read().decode("utf-8")
             session = json.loads(response_body)
-            print(json.dumps(session))
     except Exception as exc:
-        print("checkout: stripe error")
         logger.exception("checkout: stripe error")
         return _http_response(500, {"error": "Stripe error", "detail": str(exc)})
 
     logger.info("checkout: created session %s", session.get("id"))
     return _http_response(200, {"session": session})
 
-
-def handle_webhook(event: Dict[str, Any]) -> Dict[str, Any]:
+def stripe_webhook(event: Dict[str, Any]) -> Dict[str, Any]:
     logger.info("webhook: start")
     if not STRIPE_WEBHOOK_SECRET:
         logger.error("webhook: STRIPE_WEBHOOK_SECRET not set")
@@ -185,22 +181,30 @@ def handle_webhook(event: Dict[str, Any]) -> Dict[str, Any]:
 
     event_type = stripe_event.get("type")
     logger.info("webhook: verified event %s (%s)", stripe_event.get("id"), event_type)
-
+    
     if WEBHOOK_TARGET_LAMBDA_ARN:
         try:
             lambda_client = boto3.client("lambda")
             lambda_client.invoke(
                 FunctionName=WEBHOOK_TARGET_LAMBDA_ARN,
-                InvocationType="Event",
-                Payload=json.dumps({"stripe_event": stripe_event}).encode("utf-8"),
+                InvocationType="RequestResponse",
+                Payload=json.dumps({
+                    "action": "process_webhook",
+                    "webhook_event": {
+                        "type": event_type,
+                        "id": stripe_event.get("id"),
+                        "data": json.dumps(stripe_event.get("data", {}).get("object", {}))
+                    }
+                })
             )
             logger.info("webhook: forwarded event to target lambda")
         except Exception:
             logger.exception("webhook: failed to invoke target lambda")
     else:
         logger.warning("webhook: WEBHOOK_TARGET_LAMBDA_ARN not set; skipping invoke")
+        
     event_data = stripe_event.get("data", {}).get("object", {})
-
+    
     return _http_response(
         200,
         {
@@ -210,3 +214,30 @@ def handle_webhook(event: Dict[str, Any]) -> Dict[str, Any]:
             "object": event_data,
         },
     )
+
+def send_email(to_email: str, subject: str, body: str, is_html: bool = False) -> Dict[str, Any]:
+    """Send email using AWS SES"""
+    if not SES_FROM_EMAIL:
+        return {"success": False, "error": "SES from email not configured"}
+    
+    try:
+        ses_client = boto3.client('ses', region_name=AWS_REGION)
+        
+        message_body = {}
+        if is_html:
+            message_body['Html'] = {'Data': body}
+        else:
+            message_body['Text'] = {'Data': body}
+        
+        response = ses_client.send_email(
+            Source=SES_FROM_EMAIL,
+            Destination={'ToAddresses': [to_email]},
+            Message={
+                'Subject': {'Data': subject},
+                'Body': message_body
+            }
+        )
+        
+        return {"success": True, "message": "Email sent successfully", "messageId": response['MessageId']}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
