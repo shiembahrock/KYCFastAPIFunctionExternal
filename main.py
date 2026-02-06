@@ -241,3 +241,36 @@ def send_email(to_email: str, subject: str, body: str, is_html: bool = False) ->
         return {"success": True, "message": "Email sent successfully", "messageId": response['MessageId']}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def get_muinmos_token(grant_type: str, client_id: str, client_secret: str, username: str, password: str, api_url: str) -> Dict[str, Any]:
+    """Get Muinmos authentication token"""
+    if not all([grant_type, client_id, client_secret, username, password, api_url]):
+        return {"success": False, "error": "Missing required parameters: grant_type, client_id, client_secret, username, password, api_url"}
+    
+    # Validate URL format
+    if not api_url.startswith(('http://', 'https://')):
+        return {"success": False, "error": "api_url must start with http:// or https://"}
+    
+    try:
+        auth_data = {
+            "grant_type": grant_type,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "username": username,
+            "password": password
+        }
+        
+        data = urllib.parse.urlencode(auth_data).encode("utf-8")
+        req = urllib.request.Request(api_url, data=data, method="POST")
+        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            response_body = resp.read().decode("utf-8")
+            token_response = json.loads(response_body)
+            
+        return {"success": True, "token_data": token_response}
+    except urllib.error.URLError as e:
+        return {"success": False, "error": f"Network error: {str(e)} - Check URL: {api_url}"}
+    except Exception as e:
+        return {"success": False, "error": f"Request failed: {str(e)}"}
