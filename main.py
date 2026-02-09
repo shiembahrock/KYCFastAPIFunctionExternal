@@ -274,3 +274,46 @@ def get_muinmos_token(grant_type: str, client_id: str, client_secret: str, usern
         return {"success": False, "error": f"Network error: {str(e)} - Check URL: {api_url}"}
     except Exception as e:
         return {"success": False, "error": f"Request failed: {str(e)}"}
+
+
+def create_assessment(user_email: str, order_code: str, api_url: str, token_type: str, access_token: str) -> Dict[str, Any]:
+    """Create Muinmos KYC assessment"""
+    if not all([user_email, order_code, api_url, token_type, access_token]):
+        return {"success": False, "error": "Missing required parameters"}
+    
+    try:
+        url = f"{api_url}/api/assessment?api-version=2.0"
+        
+        body_data = {
+            "referenceKey": order_code,
+            "recipientEmail": user_email,
+            "includeRegulatoryTest": False,
+            "includeKYCTest": True,
+            "kycProfileID": "ede32b82-fcd5-4f17-b3fa-850eb92befc2",
+            "includeAdditionalDocs": False,
+            "includeSignatures": False,
+            "responses": {
+                "clientDomicile": "",
+                "clientType": "IND",
+                "corporationType": "",
+                "lei": "",
+                "deliveryChannel": "",
+                "responseKeyAndValue": {
+                    "additionalProp1": "",
+                    "additionalProp2": "",
+                    "additionalProp3": ""
+                }
+            }
+        }
+        
+        data = json.dumps(body_data).encode("utf-8")
+        req = urllib.request.Request(url, data=data, method="POST")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Authorization", f"{token_type} {access_token}")
+        
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            response_body = resp.read().decode("utf-8")
+            
+        return {"success": True, "assessment_id": response_body}
+    except Exception as e:
+        return {"success": False, "error": str(e)}

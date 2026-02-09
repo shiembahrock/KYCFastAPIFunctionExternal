@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 from typing import Any, Dict
-from main import create_checkout_session, stripe_webhook, send_email, get_muinmos_token
+from main import create_checkout_session, stripe_webhook, send_email, get_muinmos_token, create_assessment
 
 def _event_with_body(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {"body": json.dumps(payload)}
@@ -11,6 +11,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         action = event.get("action")
         payload = event.get("payload") or {}
 
+        if action == "create_assessment":
+            return create_assessment(
+                user_email=payload["user_email"],
+                order_code=payload["order_code"],
+                api_url=payload["api_url"],
+                token_type=payload["token_type"],
+                access_token=payload["access_token"]
+            )
         if action == "get_muinmos_token":
             return get_muinmos_token(
                 grant_type=payload["grant_type"],
