@@ -215,28 +215,54 @@ def stripe_webhook(event: Dict[str, Any]) -> Dict[str, Any]:
         },
     )
 
-def send_email(to_email: str, subject: str, body: str, is_html: bool = False) -> Dict[str, Any]:
-    """Send email using AWS SES"""
+def send_email(to_email: str, subject: str, body: str, is_html: bool = False, attachment: Dict[str, Any] = None) -> Dict[str, Any]:
+    """Send email using AWS SES with optional attachment"""
     if not SES_FROM_EMAIL:
         return {"success": False, "error": "SES from email not configured"}
     
     try:
+        import base64
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        from email.mime.application import MIMEApplication
+        
         ses_client = boto3.client('ses', region_name=AWS_REGION)
         
-        message_body = {}
-        if is_html:
-            message_body['Html'] = {'Data': body}
+        if attachment:
+            # Use raw email for attachments
+            msg = MIMEMultipart()
+            msg['Subject'] = subject
+            msg['From'] = SES_FROM_EMAIL
+            msg['To'] = to_email
+            
+            msg.attach(MIMEText(body, 'html' if is_html else 'plain'))
+            
+            # Add attachment
+            att = MIMEApplication(base64.b64decode(attachment['content']))
+            att.add_header('Content-Disposition', 'attachment', filename=attachment['filename'])
+            msg.attach(att)
+            
+            response = ses_client.send_raw_email(
+                Source=SES_FROM_EMAIL,
+                Destinations=[to_email],
+                RawMessage={'Data': msg.as_string()}
+            )
         else:
-            message_body['Text'] = {'Data': body}
-        
-        response = ses_client.send_email(
-            Source=SES_FROM_EMAIL,
-            Destination={'ToAddresses': [to_email]},
-            Message={
-                'Subject': {'Data': subject},
-                'Body': message_body
-            }
-        )
+            # Use simple email without attachments
+            message_body = {}
+            if is_html:
+                message_body['Html'] = {'Data': body}
+            else:
+                message_body['Text'] = {'Data': body}
+            
+            response = ses_client.send_email(
+                Source=SES_FROM_EMAIL,
+                Destination={'ToAddresses': [to_email]},
+                Message={
+                    'Subject': {'Data': subject},
+                    'Body': message_body
+                }
+            )
         
         return {"success": True, "message": "Email sent successfully", "messageId": response['MessageId']}
     except Exception as e:
@@ -315,5 +341,47 @@ def create_assessment(user_email: str, order_code: str, api_url: str, token_type
             response_body = resp.read().decode("utf-8")
             
         return {"success": True, "assessment_id": response_body}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def muinmos_assessment_search(from_date: str, to_date: str, base_api_url: str, token_type: str, access_token: str) -> Dict[str, Any]:
+    """Search Muinmos assessments by date range"""
+    if not all([from_date, to_date, base_api_url, token_type, access_token]):
+        return {"success": False, "error": "Missing required parameters"}
+    
+    try:
+        from datetime import datetime, timedelta
+        
+        # Parse dates and adjust by 5 minutes
+        from_dt = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+        to_dt = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
+        
+        adjusted_from = (from_dt - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%S.0000000Z")
+        adjusted_to = (to_dt + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%S.0000000Z")
+        
+        url = f"{base_api_url}/api/assessment/Search?organisationId=81906526&?api-version=2.0"
+        
+        body_data = {
+            "partyAssessmentId": None,
+            "fromDate": adjusted_from,
+            "toDate": adjusted_to,
+            "referenceKey": None,
+            "createdBy": None,
+            "respondent": None,
+            "pageSize": 9999999,
+            "pageNumber": 1
+        }
+        
+        data = json.dumps(body_data).encode("utf-8")
+        req = urllib.request.Request(url, data=data, method="POST")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Authorization", f"{token_type} {access_token}")
+        
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            response_body = resp.read().decode("utf-8")
+            search_results = json.loads(response_body)
+            
+        return {"success": True, "data": search_results}
     except Exception as e:
         return {"success": False, "error": str(e)}

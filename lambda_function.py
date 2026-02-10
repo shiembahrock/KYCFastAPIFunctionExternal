@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 from typing import Any, Dict
-from main import create_checkout_session, stripe_webhook, send_email, get_muinmos_token, create_assessment
+from main import create_checkout_session, stripe_webhook, send_email, get_muinmos_token, create_assessment, muinmos_assessment_search
 
 def _event_with_body(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {"body": json.dumps(payload)}
@@ -11,6 +11,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         action = event.get("action")
         payload = event.get("payload") or {}
 
+        if action == "muinmos_assessment_search":
+            return muinmos_assessment_search(
+                from_date=payload["from_date"],
+                to_date=payload["to_date"],
+                base_api_url=payload["base_api_url"],
+                token_type=payload["token_type"],
+                access_token=payload["access_token"]
+            )
         if action == "create_assessment":
             return create_assessment(
                 user_email=payload["user_email"],
@@ -34,6 +42,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 subject=payload["subject"],
                 body=payload["body"],
                 is_html=payload.get("is_html", False),
+                attachment=payload.get("attachment")
             )
         if action == "create_checkout_session":
             return create_checkout_session(_event_with_body(payload))
