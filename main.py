@@ -385,3 +385,57 @@ def muinmos_assessment_search(from_date: str, to_date: str, base_api_url: str, t
         return {"success": True, "data": search_results}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def send_muinmos_assessment_kycpdf(base_api_url: str, token_type: str, access_token: str, assessment_list: list) -> Dict[str, Any]:
+    """Send KYC PDF assessments via email"""
+    if not all([base_api_url, token_type, access_token, assessment_list]):
+        return {"success": False, "error": "Missing required parameters"}
+    
+    import base64
+    send_email_result_list = []
+    
+    for item in assessment_list:
+        order_assessment_id = item.get("order_assessment_id")
+        email = item.get("email")
+        assessment_id = item.get("assessment_id")
+        
+        try:
+            # Get KYC PDF from Muinmos
+            url = f"{base_api_url}/api/assessment/KYCpdf?api-version=2.0"
+            body_data = {"assessmentId": assessment_id}
+            
+            data = json.dumps(body_data).encode("utf-8")
+            req = urllib.request.Request(url, data=data, method="POST")
+            req.add_header("Content-Type", "application/json")
+            req.add_header("Authorization", f"{token_type} {access_token}")
+            
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                pdf_content = resp.read()
+            
+            # Send email with PDF attachment
+            email_result = send_email(
+                to_email=email,
+                subject="Your assessment has been completed successfully.",
+                body="🎉 Thank You!</br>Your assessment has been completed successfully.</br></br>You can now download the PDF from your device.",
+                is_html=True,
+                attachment={
+                    "filename": f"{assessment_id}.pdf",
+                    "content": base64.b64encode(pdf_content).decode("utf-8")
+                }
+            )
+            
+            send_email_result_list.append({
+                "order_assessment_id": order_assessment_id,
+                "is_pdf_sent": email_result.get("success", False)
+            })
+            
+        except Exception as e:
+            send_email_result_list.append({
+                "order_assessment_id": order_assessment_id,
+                "is_pdf_sent": False,
+                "error": str(e)
+            })
+    
+    print("Email sending results:", send_email_result_list)
+    return {"success": True, "results": send_email_result_list}
