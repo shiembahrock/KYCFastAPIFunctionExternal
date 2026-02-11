@@ -18,6 +18,10 @@ DEFAULT_CURRENCY = os.getenv("STRIPE_DEFAULT_CURRENCY", "usd")
 WEBHOOK_TARGET_LAMBDA_ARN = os.getenv("WEBHOOK_TARGET_LAMBDA_ARN", "")
 SES_FROM_EMAIL = os.getenv("SES_FROM_EMAIL", "")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+SMTP_GMAIL_USER = os.getenv("SMTP_GMAIL_USER", "")
+SMTP_GMAIL_PASSWORD = os.getenv("SMTP_GMAIL_PASSWORD", "")
+SMTP_GMAIL_HOST = os.getenv("SMTP_GMAIL_HOST", "")
+SMTP_GMAIL_PORT = os.getenv("SMTP_GMAIL_PORT", "587")
 # Note: If this Lambda runs inside a VPC, it needs outbound access to the Lambda
 # API to invoke another function. Use a NAT Gateway or a VPC Interface Endpoint
 # for Lambda (com.amazonaws.<region>.lambda). The target Lambda can be in or out
@@ -265,6 +269,40 @@ def send_email(to_email: str, subject: str, body: str, is_html: bool = False, at
             )
         
         return {"success": True, "message": "Email sent successfully", "messageId": response['MessageId']}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def send_email_smtp(to_email: str, subject: str, body: str, is_html: bool = False, attachment: Dict[str, Any] = None) -> Dict[str, Any]:
+    """Send email using SMTP with optional attachment"""
+    if not all([SMTP_GMAIL_HOST, SMTP_GMAIL_PORT, SMTP_GMAIL_USER, SMTP_GMAIL_PASSWORD]):
+        return {"success": False, "error": "SMTP configuration missing"}
+    
+    try:
+        import smtplib
+        import base64
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        from email.mime.application import MIMEApplication
+        
+        msg = MIMEMultipart()
+        msg['Subject'] = subject
+        msg['From'] = SMTP_GMAIL_USER
+        msg['To'] = to_email
+        
+        msg.attach(MIMEText(body, 'html' if is_html else 'plain'))
+        
+        if attachment:
+            att = MIMEApplication(base64.b64decode(attachment['content']))
+            att.add_header('Content-Disposition', 'attachment', filename=attachment['filename'])
+            msg.attach(att)
+        
+        with smtplib.SMTP(SMTP_GMAIL_HOST, int(SMTP_GMAIL_PORT)) as server:
+            server.starttls()
+            server.login(SMTP_GMAIL_USER, SMTP_GMAIL_PASSWORD)
+            server.send_message(msg)
+        
+        return {"success": True, "message": "Email sent successfully via SMTP"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
