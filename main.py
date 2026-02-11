@@ -452,7 +452,7 @@ def send_muinmos_assessment_kycpdf(base_api_url: str, token_type: str, access_to
                 pdf_content = resp.read()
             
             # Send email with PDF attachment
-            email_result = send_email(
+            email_result = send_email_smtp(
                 to_email=email,
                 subject="Your assessment has been completed successfully.",
                 body="🎉 Thank You!</br>Your assessment has been completed successfully.</br></br>You can now download the PDF from your device.",
