@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 from typing import Any, Dict
-from main import create_checkout_session, stripe_webhook, send_email, send_email_smtp, get_muinmos_token, create_assessment, muinmos_assessment_search, send_muinmos_assessment_kycpdf
+from main import create_checkout_session, stripe_webhook, send_email, send_email_smtp, get_muinmos_token, create_assessment, muinmos_assessment_search, send_muinmos_assessment_kycpdf, send_muinmos_assessment_kycpdf_single_user, muinmos_callback_from_outsystem
 
 def _event_with_body(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {"body": json.dumps(payload)}
@@ -17,6 +17,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 token_type=payload["token_type"],
                 access_token=payload["access_token"],
                 assessment_list=payload["assessment_list"]
+            )
+        if action == "send_muinmos_assessment_kycpdf_single_user":
+            return send_muinmos_assessment_kycpdf_single_user(
+                base_api_url=payload["base_api_url"],
+                token_type=payload["token_type"],
+                access_token=payload["access_token"],
+                email=payload["email"],
+                assessment_id=payload["assessment_id"]
             )
         if action == "muinmos_assessment_search":
             return muinmos_assessment_search(
@@ -76,5 +84,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     if route_key and "stripewebhook" in str(route_key).lower():
         return stripe_webhook(event)
+    
+    if route_key and "muinmoscallbackfromoutsystem" in str(route_key).lower():
+        print("muinmos_callback_from_outsystem called")
+        return muinmos_callback_from_outsystem(event)
 
     return create_checkout_session(event)

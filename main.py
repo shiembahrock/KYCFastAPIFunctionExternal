@@ -477,3 +477,96 @@ def send_muinmos_assessment_kycpdf(base_api_url: str, token_type: str, access_to
     
     print("Email sending results:", send_email_result_list)
     return {"success": True, "results": send_email_result_list}
+
+
+def send_muinmos_assessment_kycpdf_single_user(base_api_url: str, token_type: str, access_token: str, email: str, assessment_id: str) -> Dict[str, Any]:
+    """Send KYC PDF assessment via email for single user"""
+    if not all([base_api_url, token_type, access_token, email, assessment_id]):
+        return {"success": False, "error": "Missing required parameters"}
+    
+    import base64
+    
+    try:
+        # Get KYC PDF from Muinmos
+        url = f"{base_api_url}/api/assessment/KYCpdf?api-version=2.0"
+        body_data = {"assessmentId": assessment_id}
+        
+        data = json.dumps(body_data).encode("utf-8")
+        req = urllib.request.Request(url, data=data, method="POST")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Authorization", f"{token_type} {access_token}")
+        
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            pdf_content = resp.read()
+        
+        # Send email with PDF attachment
+        email_result = send_email_smtp(
+            to_email=email,
+            subject="Your assessment has been completed successfully.",
+            body="🎉 Thank You!</br>Your assessment has been completed successfully.</br></br>You can now download the PDF from your device.",
+            is_html=True,
+            attachment={
+                "filename": f"{assessment_id}.pdf",
+                "content": base64.b64encode(pdf_content).decode("utf-8")
+            }
+        )
+        
+        return {
+            "success": True,
+            "is_pdf_sent": email_result.get("success", False)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "is_pdf_sent": False,
+            "error": str(e)
+        }
+
+def muinmos_callback_from_outsystem(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle Muinmos callback events"""
+    try:
+        # Get authorization header
+        headers = event.get("headers") or {}
+        auth = headers.get("authorization")
+        
+        if auth != "P@ssw0rd1234!!":
+            return {"success": False, "error": "Unauthorized"}
+        
+        # Parse body
+        body = event.get("body") or ""
+        if event.get("isBase64Encoded"):
+            import base64
+            body = base64.b64decode(body).decode("utf-8")
+        
+        payload = json.loads(body)
+        
+        # Extract data
+        event_type = payload.get("event_type")
+        assessment_id = payload.get("assessment_id")
+        reference_key = payload.get("reference_key")
+        
+        # Invoke lambda if event_type is "0"
+        if event_type == "0" and WEBHOOK_TARGET_LAMBDA_ARN:
+            try:
+                lambda_client = boto3.client("lambda")
+                lambda_client.invoke(
+                    FunctionName=WEBHOOK_TARGET_LAMBDA_ARN,
+                    InvocationType="Event",
+                    Payload=json.dumps({
+                        "action": "update_order_assessment_iscomplete_sendpdfreport",
+                        "event_type": event_type,
+                        "assessment_id": assessment_id,
+                        "reference_key": reference_key
+                    })
+                )
+            except Exception:
+                pass
+        
+        return {
+            "success": True,
+            "event_type": event_type,
+            "assessment_id": assessment_id,
+            "reference_key": reference_key
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
