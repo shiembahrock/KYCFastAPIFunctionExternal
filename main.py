@@ -10,18 +10,15 @@ import stripe
 
 STRIPE_API_KEY = os.getenv("STRIPE_API_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-DEFAULT_CURRENCY = os.getenv("STRIPE_DEFAULT_CURRENCY", "usd")
 WEBHOOK_TARGET_LAMBDA_ARN = os.getenv("WEBHOOK_TARGET_LAMBDA_ARN", "")
-STRIPE_API_KEY = os.getenv("STRIPE_API_KEY", "")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 DEFAULT_CURRENCY = os.getenv("STRIPE_DEFAULT_CURRENCY", "usd")
-WEBHOOK_TARGET_LAMBDA_ARN = os.getenv("WEBHOOK_TARGET_LAMBDA_ARN", "")
 SES_FROM_EMAIL = os.getenv("SES_FROM_EMAIL", "")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 SMTP_GMAIL_USER = os.getenv("SMTP_GMAIL_USER", "")
 SMTP_GMAIL_PASSWORD = os.getenv("SMTP_GMAIL_PASSWORD", "")
 SMTP_GMAIL_HOST = os.getenv("SMTP_GMAIL_HOST", "")
 SMTP_GMAIL_PORT = os.getenv("SMTP_GMAIL_PORT", "587")
+OUTSYSTEM_HEADER_AUTH = os.getenv("OUTSYSTEM_HEADER_AUTH", "")
 # Note: If this Lambda runs inside a VPC, it needs outbound access to the Lambda
 # API to invoke another function. Use a NAT Gateway or a VPC Interface Endpoint
 # for Lambda (com.amazonaws.<region>.lambda). The target Lambda can be in or out
@@ -529,7 +526,11 @@ def muinmos_callback_from_outsystem(event: Dict[str, Any]) -> Dict[str, Any]:
         headers = event.get("headers") or {}
         auth = headers.get("authorization")
         
-        if auth != "P@ssw0rd1234!!":
+        if OUTSYSTEM_HEADER_AUTH:
+            if auth != OUTSYSTEM_HEADER_AUTH:
+                return {"success": False, "error": "Unauthorized"}
+        else:
+            logger.warning("muinmos_callback: OUTSYSTEM_HEADER_AUTH not set; skipping auth check")
             return {"success": False, "error": "Unauthorized"}
         
         # Parse body

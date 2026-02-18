@@ -4,3 +4,4 @@ __pycache__/
 *.zip
 node_modules/
 .github/workflows/
+.env.local
