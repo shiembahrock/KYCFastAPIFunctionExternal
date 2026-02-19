@@ -422,6 +422,61 @@ def muinmos_assessment_search(from_date: str, to_date: str, base_api_url: str, t
         return {"success": False, "error": str(e)}
 
 
+def get_muinmos_assessment_result(base_api_url: str, token_type: str, access_token: str, assessment_id: str) -> Dict[str, Any]:
+    """Get Muinmos assessment result"""
+    if not all([base_api_url, token_type, access_token, assessment_id]):
+        return {"success": False, "error": "Missing required parameters"}
+    
+    try:
+        url = f"{base_api_url}/api/assessment/{assessment_id}?api-version=2.0"
+        
+        req = urllib.request.Request(url, method="GET")
+        req.add_header("Authorization", f"{token_type} {access_token}")
+        
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            response_body = resp.read().decode("utf-8")
+            result = json.loads(response_body)
+        
+        # Check if assessment is completed
+        if result.get("state") != "Completed":
+            return {"success": False, "error": "Assessment not completed"}
+        
+        # Extract ragResult
+        rag_results = result.get("mCheck", {}).get("individual", {}).get("ragResults", [])
+        rag_result = rag_results[0].get("ragResult") if rag_results else None
+        
+        # Extract answers from detailedResponses
+        answers = {}
+        detailed_responses = result.get("detailedResponses", [])
+        
+        for section in detailed_responses:
+            responses = section.get("responses", [])
+            for item in responses:
+                question_id = item.get("questionDefinitionId")
+                response_list = item.get("responses", [])
+                response_value = response_list[0].get("response") if response_list else ""
+                
+                if question_id == 5000:
+                    answers["first_name"] = response_value
+                elif question_id == 5001:
+                    answers["middle_name"] = response_value
+                elif question_id == 5002:
+                    answers["last_name"] = response_value
+                elif question_id == 5003:
+                    answers["dob"] = response_value
+        
+        return {
+            "success": True,
+            "assessment_id": result.get("id"),
+            "reference_key": result.get("referenceKey"),
+            "completed_time": result.get("completedTime"),
+            "ragResult": rag_result,
+            "answers": answers
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 def send_muinmos_assessment_kycpdf(base_api_url: str, token_type: str, access_token: str, assessment_list: list) -> Dict[str, Any]:
     """Send KYC PDF assessments via email"""
     if not all([base_api_url, token_type, access_token, assessment_list]):
