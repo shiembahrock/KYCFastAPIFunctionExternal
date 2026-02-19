@@ -93,13 +93,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return stripe_webhook(event)
     
     if route_key and "muinmoscallbackfromoutsystem" in str(route_key).lower():
-        result = muinmos_callback_from_outsystem(event)
-        return {
-            "statusCode": 200 if result.get("success") else 400,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps(result)
-        }
-    
+        return muinmos_callback_from_outsystem(event)
+            
     if route_key and "sendemailsmtp" in str(route_key).lower():
         from main import _parse_event_body
         payload = _parse_event_body(event)
