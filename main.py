@@ -626,3 +626,44 @@ def muinmos_callback_from_outsystem(event: Dict[str, Any]) -> Dict[str, Any]:
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def get_muinmos_question(base_api_url: str, assessment_id: str) -> Dict[str, Any]:
+    """Get Muinmos assessment questions"""
+    if not all([base_api_url, assessment_id]):
+        return {"statusCode": 400, "body": {"error": "Missing required parameters"}}
+    
+    try:
+        url = f"{base_api_url}/api/assessment/{assessment_id}/question?api-version=2.0"
+        
+        req = urllib.request.Request(url, method="GET")
+        
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            response_body = resp.read().decode("utf-8")
+            question_data = json.loads(response_body)
+        
+        return {"statusCode": 200, "body": {"result": question_data}}
+    except Exception:
+        return {"statusCode": 400, "body": {"error": "Failed to get assessment questions."}}
+
+
+def submit_muinmos_answer(base_api_url: str, token_type: str, access_token: str, assessment_id: str, answer: list) -> Dict[str, Any]:
+    """Submit Muinmos assessment answers"""
+    if not all([base_api_url, token_type, access_token, assessment_id, answer]):
+        return {"statusCode": 400, "body": {"status": "Missing required parameters"}}
+    
+    try:
+        url = f"{base_api_url}/api/assessment/{assessment_id}/question?api-version=2.0"
+        
+        data = json.dumps(answer).encode("utf-8")
+        req = urllib.request.Request(url, data=data, method="POST")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Authorization", f"{token_type} {access_token}")
+        
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            response_body = resp.read().decode("utf-8")
+            result = json.loads(response_body)
+        
+        return {"statusCode": 200, "body": {"status": result}}
+    except Exception:
+        return {"statusCode": 400, "body": {"status": "Failed to submit answer."}}

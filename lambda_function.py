@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 from typing import Any, Dict
-from main import create_checkout_session, stripe_webhook, send_email, send_email_smtp, get_muinmos_token, create_assessment, muinmos_assessment_search, get_muinmos_assessment_result, send_muinmos_assessment_kycpdf, send_muinmos_assessment_kycpdf_single_user, muinmos_callback_from_outsystem
+from main import create_checkout_session, stripe_webhook, send_email, send_email_smtp, get_muinmos_token, create_assessment, muinmos_assessment_search, get_muinmos_assessment_result, send_muinmos_assessment_kycpdf, send_muinmos_assessment_kycpdf_single_user, muinmos_callback_from_outsystem, get_muinmos_question, submit_muinmos_answer
 
 def _event_with_body(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {"body": json.dumps(payload)}
@@ -40,6 +40,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 token_type=payload["token_type"],
                 access_token=payload["access_token"],
                 assessment_id=payload["assessment_id"]
+            )
+        if action == "get_muinmos_question":
+            return get_muinmos_question(
+                base_api_url=payload["base_api_url"],
+                assessment_id=payload["assessment_id"]
+            )
+        if action == "submit_muinmos_answer":
+            return submit_muinmos_answer(
+                base_api_url=payload["base_api_url"],
+                token_type=payload["token_type"],
+                access_token=payload["access_token"],
+                assessment_id=payload["assessment_id"],
+                answer=payload["answer"]
             )
         if action == "create_assessment":
             return create_assessment(
