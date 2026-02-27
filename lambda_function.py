@@ -3,6 +3,8 @@ import json
 from typing import Any, Dict
 from main import create_checkout_session, stripe_webhook, send_email, send_email_smtp, get_muinmos_token, create_assessment, muinmos_assessment_search, get_muinmos_assessment_result, send_muinmos_assessment_kycpdf, send_muinmos_assessment_kycpdf_single_user, muinmos_callback_from_outsystem, get_muinmos_question, submit_muinmos_answer
 
+# Test auto deploy #1
+
 def _event_with_body(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {"body": json.dumps(payload)}
 
