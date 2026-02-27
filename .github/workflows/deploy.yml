@@ -1,0 +1,53 @@
+name: Deploy Lambda Function
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: List files (for debugging)
+      run: |
+        echo "Repository contents:"
+        ls -la
+    
+    - name: Install dependencies and create package
+      run: |
+        # Install dependencies to current directory
+        pip install -r requirements.txt -t .
+        
+        # Create zip file excluding unnecessary files
+        zip -r deployment-KYCFastAPIFunctionExternal-package.zip . -x \
+          "*.git*" \
+          ".github/*" \
+          "*.zip" \
+          "__pycache__/*" \
+          "*.pyc" \
+          "*.md" \
+          ".gitignore"
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+    
+    - name: Deploy to Lambda
+      run: |
+        aws lambda update-function-code \
+          --function-name KYCFastAPIFunctionExternal \
+          --zip-file fileb://deployment-KYCFastAPIFunctionExternal-package.zip
