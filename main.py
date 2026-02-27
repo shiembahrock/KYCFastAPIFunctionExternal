@@ -631,7 +631,7 @@ def muinmos_callback_from_outsystem(event: Dict[str, Any]) -> Dict[str, Any]:
 def get_muinmos_question(base_api_url: str, assessment_id: str) -> Dict[str, Any]:
     """Get Muinmos assessment questions"""
     if not all([base_api_url, assessment_id]):
-        return {"statusCode": 400, "body": {"error": "Missing required parameters"}}
+        return {"statusCode": 500, "body": {"error": "Missing required parameters"}}
     
     try:
         url = f"{base_api_url}/api/assessment/{assessment_id}/question?api-version=2.0"
@@ -650,7 +650,7 @@ def get_muinmos_question(base_api_url: str, assessment_id: str) -> Dict[str, Any
 def submit_muinmos_answer(base_api_url: str, token_type: str, access_token: str, assessment_id: str, answer: list) -> Dict[str, Any]:
     """Submit Muinmos assessment answers"""
     if not all([base_api_url, token_type, access_token, assessment_id, answer]):
-        return {"statusCode": 400, "body": {"status": "Missing required parameters"}}
+        return {"statusCode": 500, "body": {"error": "Missing required parameters"}}
     
     try:
         url = f"{base_api_url}/api/assessment/{assessment_id}/question?api-version=2.0"
@@ -664,6 +664,6 @@ def submit_muinmos_answer(base_api_url: str, token_type: str, access_token: str,
             response_body = resp.read().decode("utf-8")
             result = json.loads(response_body)
         
-        return {"statusCode": 200, "body": {"status": result}}
+        return {"statusCode": 200, "body": {"result": result}}
     except Exception:
-        return {"statusCode": 400, "body": {"status": "Failed to submit answer."}}
+        return {"statusCode": 400, "body": {"error": "Failed to submit answer."}}
