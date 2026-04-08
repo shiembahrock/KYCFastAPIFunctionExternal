@@ -337,9 +337,9 @@ def get_muinmos_token(grant_type: str, client_id: str, client_secret: str, usern
         return {"success": False, "error": f"Request failed: {str(e)}"}
 
 
-def create_assessment(user_email: str, order_code: str, api_url: str, token_type: str, access_token: str) -> Dict[str, Any]:
+def create_assessment(user_email: str, kyc_profile_id: str, order_code: str, api_url: str, token_type: str, access_token: str) -> Dict[str, Any]:
     """Create Muinmos KYC assessment"""
-    if not all([user_email, order_code, api_url, token_type, access_token]):
+    if not all([user_email, kyc_profile_id, order_code, api_url, token_type, access_token]):
         return {"success": False, "error": "Missing required parameters"}
     
     try:
@@ -350,7 +350,7 @@ def create_assessment(user_email: str, order_code: str, api_url: str, token_type
             "recipientEmail": user_email,
             "includeRegulatoryTest": False,
             "includeKYCTest": True,
-            "kycProfileID": "ede32b82-fcd5-4f17-b3fa-850eb92befc2",
+            "kycProfileID": kyc_profile_id,
             "includeAdditionalDocs": False,
             "includeSignatures": False,
             "responses": {

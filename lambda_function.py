@@ -59,6 +59,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if action == "create_assessment":
             return create_assessment(
                 user_email=payload["user_email"],
+                kyc_profile_id=payload["kyc_profile_id"],
                 order_code=payload["order_code"],
                 api_url=payload["api_url"],
                 token_type=payload["token_type"],
