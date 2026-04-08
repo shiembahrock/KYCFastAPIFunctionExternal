@@ -176,6 +176,7 @@ def stripe_webhook(event: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         stripe_event = stripe.Webhook.construct_event(payload, signature, STRIPE_WEBHOOK_SECRET)
+        stripe_event = json.loads(str(stripe_event))
     except Exception as exc:
         logger.warning("webhook: invalid signature")
         return _http_response(400, {"error": "Invalid webhook signature", "detail": str(exc)})
