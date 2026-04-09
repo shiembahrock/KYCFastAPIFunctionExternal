@@ -453,17 +453,20 @@ def get_muinmos_assessment_result(base_api_url: str, token_type: str, access_tok
         for section in detailed_responses:
             responses = section.get("responses", [])
             for item in responses:
-                question_id = item.get("questionDefinitionId")
                 response_list = item.get("responses", [])
-                response_value = response_list[0].get("response") if response_list else ""
+                if not response_list:
+                    continue
+                response_value = response_list[0].get("response", "")
+                tags = response_list[0].get("tags", [])
+                tag_name = tags[0].get("name") if tags else None
                 
-                if question_id == 5000:
+                if tag_name == "FirstName":
                     answers["first_name"] = response_value
-                elif question_id == 5001:
+                elif tag_name == "MiddleName":
                     answers["middle_name"] = response_value
-                elif question_id == 5002:
+                elif tag_name == "LastName":
                     answers["last_name"] = response_value
-                elif question_id == 5003:
+                elif tag_name == "DOB":
                     answers["dob"] = response_value
         
         return {
