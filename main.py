@@ -110,7 +110,7 @@ def create_checkout_session(event: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         form: Dict[str, Any] = {
-            "allow-promotion-codes": "true",
+            "allow_promotion_codes": True,
             "success_url": success_url,
             "cancel_url": cancel_url,
             "mode": mode,
@@ -151,6 +151,14 @@ def create_checkout_session(event: Dict[str, Any]) -> Dict[str, Any]:
         with urllib.request.urlopen(req, timeout=120) as resp:            
             response_body = resp.read().decode("utf-8")
             session = json.loads(response_body)
+    except urllib.error.HTTPError as http_err:
+        error_body = http_err.read().decode("utf-8")
+        try:
+            error_detail = json.loads(error_body)
+        except:
+            error_detail = error_body
+        logger.exception("checkout: stripe error")
+        return _http_response(500, {"error": "Stripe error", "detail": error_detail})
     except Exception as exc:
         logger.exception("checkout: stripe error")
         return _http_response(500, {"error": "Stripe error", "detail": str(exc)})
