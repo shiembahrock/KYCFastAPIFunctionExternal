@@ -110,6 +110,7 @@ def create_checkout_session(event: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         form: Dict[str, Any] = {
+            "allow-promotion-codes": "true",
             "success_url": success_url,
             "cancel_url": cancel_url,
             "mode": mode,
