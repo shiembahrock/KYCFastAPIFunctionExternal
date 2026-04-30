@@ -120,6 +120,8 @@ def create_checkout_session(event: Dict[str, Any]) -> Dict[str, Any]:
             if key.startswith("line_items[") or key.startswith("payment_method_types[") or key.startswith("metadata[") or key.startswith("payment_intent_data["):
                 form[key] = value
 
+        stripe_product_id = payload.get("line_items[0][price_data][product]")
+
         if "line_items[0][price_data][currency]" not in form:
             form["line_items[0][price_data][currency]"] = currency
         if "line_items[0][price_data][product_data][name]" not in form and not stripe_product_id:
@@ -129,7 +131,6 @@ def create_checkout_session(event: Dict[str, Any]) -> Dict[str, Any]:
         if "line_items[0][quantity]" not in form:
             form["line_items[0][quantity]"] = str(int(quantity) if quantity is not None else 1)
 
-        stripe_product_id = payload.get("line_items[0][price_data][product]")
         if stripe_product_id:
             form["line_items[0][price_data][product]"] = stripe_product_id
 
