@@ -129,6 +129,10 @@ def create_checkout_session(event: Dict[str, Any]) -> Dict[str, Any]:
         if "line_items[0][quantity]" not in form:
             form["line_items[0][quantity]"] = str(int(quantity) if quantity is not None else 1)
 
+        stripe_product_id = payload.get("line_items[0][price_data][product]")
+        if stripe_product_id:
+            form["line_items[0][price_data][product]"] = stripe_product_id
+
         customer_email = payload.get("customer_email")
         if customer_email:
             form["customer_email"] = customer_email
