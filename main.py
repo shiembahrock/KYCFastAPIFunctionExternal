@@ -122,7 +122,7 @@ def create_checkout_session(event: Dict[str, Any]) -> Dict[str, Any]:
 
         if "line_items[0][price_data][currency]" not in form:
             form["line_items[0][price_data][currency]"] = currency
-        if "line_items[0][price_data][product_data][name]" not in form:
+        if "line_items[0][price_data][product_data][name]" not in form and not stripe_product_id:
             form["line_items[0][price_data][product_data][name]"] = product_name or "Stripe Checkout"
         if "line_items[0][price_data][unit_amount]" not in form:
             form["line_items[0][price_data][unit_amount]"] = str(amount_int)
