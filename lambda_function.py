@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 from typing import Any, Dict
-from main import create_checkout_session, stripe_webhook, send_email, send_email_smtp, get_muinmos_token, create_assessment, muinmos_assessment_search, get_muinmos_assessment_result, send_muinmos_assessment_kycpdf, send_muinmos_assessment_kycpdf_single_user, muinmos_callback_from_outsystem, get_muinmos_question, submit_muinmos_answer
+from main import create_checkout_session, stripe_webhook, send_email, send_email_smtp, get_muinmos_token, create_assessment, muinmos_assessment_search, get_muinmos_assessment_result, send_muinmos_assessment_kycpdf, send_muinmos_assessment_kycpdf_single_user, muinmos_callback_from_outsystem, muinmos_callback_directly, get_muinmos_question, submit_muinmos_answer
 
 # Test auto deploy #1
 
@@ -110,6 +110,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     if route_key and "muinmoscallbackfromoutsystem" in str(route_key).lower():
         return muinmos_callback_from_outsystem(event)
+
+    if route_key and "muinmoscallbackdirectly" in str(route_key).lower():
+        return muinmos_callback_directly(event)
             
     if route_key and "sendemailsmtp" in str(route_key).lower():
         from main import _parse_event_body

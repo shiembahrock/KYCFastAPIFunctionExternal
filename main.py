@@ -19,6 +19,7 @@ SMTP_GMAIL_PASSWORD = os.getenv("SMTP_GMAIL_PASSWORD", "")
 SMTP_GMAIL_HOST = os.getenv("SMTP_GMAIL_HOST", "")
 SMTP_GMAIL_PORT = os.getenv("SMTP_GMAIL_PORT", "587")
 OUTSYSTEM_HEADER_AUTH = os.getenv("OUTSYSTEM_HEADER_AUTH", "")
+MUINMOS_API_KEY = os.getenv("MUINMOS_API_KEY", "")
 # Note: If this Lambda runs inside a VPC, it needs outbound access to the Lambda
 # API to invoke another function. Use a NAT Gateway or a VPC Interface Endpoint
 # for Lambda (com.amazonaws.<region>.lambda). The target Lambda can be in or out
@@ -685,3 +686,72 @@ def submit_muinmos_answer(base_api_url: str, token_type: str, access_token: str,
         return {"statusCode": 200, "body": {"result": result}}
     except Exception:
         return {"statusCode": 400, "body": {"error": "Failed to submit answer."}}
+
+
+def muinmos_callback_directly(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle direct Muinmos mPASS callback with HMAC-SHA256 authentication"""
+    try:
+        import hmac
+        import hashlib
+        import base64
+
+        headers = event.get("headers") or {}
+        x_pass_hmac = headers.get("x-pass-hmac") or headers.get("X-Pass-HMAC")
+
+        if not x_pass_hmac:
+            return _http_response(401, {"error": "Missing X-Pass-HMAC header"})
+
+        if not MUINMOS_API_KEY:
+            return _http_response(500, {"error": "MUINMOS_API_KEY not configured"})
+
+        # Get raw body for HMAC verification
+        body = event.get("body") or ""
+        if event.get("isBase64Encoded"):
+            body = base64.b64decode(body).decode("utf-8")
+
+        # Verify HMAC-SHA256: body (UTF-8) + api key (UTF-8) as secret, result BASE64 encoded
+        expected_hmac = base64.b64encode(
+            hmac.new(
+                MUINMOS_API_KEY.encode("utf-8"),
+                body.encode("utf-8"),
+                hashlib.sha256
+            ).digest()
+        ).decode("utf-8")
+
+        if not hmac.compare_digest(x_pass_hmac, expected_hmac):
+            return _http_response(401, {"error": "Invalid HMAC signature"})
+
+        payload = json.loads(body)
+
+        organisation_id = payload.get("organisationId")
+        profile_id = payload.get("profileId")
+        notification_type = payload.get("notificationType")
+        assessment_id = payload.get("id")
+        reference_key = payload.get("referenceKey")
+
+        if notification_type == "0" and WEBHOOK_TARGET_LAMBDA_ARN:
+            try:
+                lambda_client = boto3.client("lambda")
+                lambda_client.invoke(
+                    FunctionName=WEBHOOK_TARGET_LAMBDA_ARN,
+                    InvocationType="Event",
+                    Payload=json.dumps({
+                        "action": "update_order_assessment_iscomplete_sendpdfreport",
+                        "event_type": notification_type,
+                        "assessment_id": assessment_id,
+                        "reference_key": reference_key
+                    })
+                )
+            except Exception:
+                pass
+
+        return _http_response(200, {
+            "success": True,
+            "organisation_id": organisation_id,
+            "profile_id": profile_id,
+            "notification_type": notification_type,
+            "assessment_id": assessment_id,
+            "reference_key": reference_key
+        })
+    except Exception as e:
+        return _http_response(200, {"success": False, "error": str(e)})
