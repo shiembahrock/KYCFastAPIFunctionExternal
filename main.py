@@ -330,25 +330,28 @@ def get_muinmos_token(grant_type: str, client_id: str, client_secret: str, usern
         return {"success": False, "error": "api_url must start with http:// or https://"}
     
     try:
-        auth_data = {
-            "grant_type": grant_type,
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "username": username,
-            "password": password
-        }
-        
-        data = urllib.parse.urlencode(auth_data).encode("utf-8")
-        req = urllib.request.Request(api_url, data=data, method="POST")
-        req.add_header("Content-Type", "application/x-www-form-urlencoded")
-        
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            response_body = resp.read().decode("utf-8")
-            token_response = json.loads(response_body)
-            
-        return {"success": True, "token_data": token_response}
-    except urllib.error.URLError as e:
-        return {"success": False, "error": f"Network error: {str(e)} - Check URL: {api_url}"}
+        from curl_cffi import requests as curl_requests
+        resp = curl_requests.post(
+            api_url,
+            data={
+                "grant_type": grant_type,
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "username": username,
+                "password": password
+            },
+            headers={
+                "accept": "*/*",
+                "X-Version": "2.0",
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            impersonate="chrome110",
+            timeout=30
+        )
+        if resp.status_code >= 400:
+            print(f"HTTP {resp.status_code} error body: {resp.text}")
+            return {"success": False, "error": f"HTTP {resp.status_code}", "response_body": resp.text}
+        return {"success": True, "token_data": resp.json()}
     except Exception as e:
         return {"success": False, "error": f"Request failed: {str(e)}"}
 
