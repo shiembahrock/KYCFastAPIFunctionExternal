@@ -362,6 +362,7 @@ def create_assessment(user_email: str, kyc_profile_id: str, order_code: str, api
         return {"success": False, "error": "Missing required parameters"}
     
     try:
+        from curl_cffi import requests as curl_requests
         url = f"{api_url}/api/assessment?api-version=2.0"
         
         body_data = {
@@ -385,16 +386,21 @@ def create_assessment(user_email: str, kyc_profile_id: str, order_code: str, api
                 }
             }
         }
-        
-        data = json.dumps(body_data).encode("utf-8")
-        req = urllib.request.Request(url, data=data, method="POST")
-        req.add_header("Content-Type", "application/json")
-        req.add_header("Authorization", f"{token_type} {access_token}")
-        
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            response_body = resp.read().decode("utf-8")
-            
-        return {"success": True, "assessment_id": response_body}
+
+        resp = curl_requests.post(
+            url,
+            json=body_data,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"{token_type} {access_token}"
+            },
+            impersonate="chrome110",
+            timeout=30
+        )
+        if resp.status_code >= 400:
+            print(f"HTTP {resp.status_code} error body: {resp.text}")
+            return {"success": False, "error": f"HTTP {resp.status_code}", "response_body": resp.text}
+        return {"success": True, "assessment_id": resp.text}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -427,16 +433,20 @@ def muinmos_assessment_search(from_date: str, to_date: str, base_api_url: str, t
             "pageNumber": 1
         }
         
-        data = json.dumps(body_data).encode("utf-8")
-        req = urllib.request.Request(url, data=data, method="POST")
-        req.add_header("Content-Type", "application/json")
-        req.add_header("Authorization", f"{token_type} {access_token}")
-        
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            response_body = resp.read().decode("utf-8")
-            search_results = json.loads(response_body)
-            
-        return {"success": True, "data": search_results}
+        from curl_cffi import requests as curl_requests
+        resp = curl_requests.post(
+            url,
+            json=body_data,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"{token_type} {access_token}"
+            },
+            impersonate="chrome110",
+            timeout=30
+        )
+        if resp.status_code >= 400:
+            return {"success": False, "error": f"HTTP {resp.status_code}", "response_body": resp.text}
+        return {"success": True, "data": resp.json()}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -449,12 +459,16 @@ def get_muinmos_assessment_result(base_api_url: str, token_type: str, access_tok
     try:
         url = f"{base_api_url}/api/assessment/{assessment_id}?api-version=2.0"
         
-        req = urllib.request.Request(url, method="GET")
-        req.add_header("Authorization", f"{token_type} {access_token}")
-        
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            response_body = resp.read().decode("utf-8")
-            result = json.loads(response_body)
+        from curl_cffi import requests as curl_requests
+        resp = curl_requests.get(
+            url,
+            headers={"Authorization": f"{token_type} {access_token}"},
+            impersonate="chrome110",
+            timeout=30
+        )
+        if resp.status_code >= 400:
+            return {"success": False, "error": f"HTTP {resp.status_code}", "response_body": resp.text}
+        result = resp.json()
         
         # Check if assessment is completed
         if result.get("state") != "Completed":
@@ -517,13 +531,18 @@ def send_muinmos_assessment_kycpdf(base_api_url: str, token_type: str, access_to
             url = f"{base_api_url}/api/assessment/KYCpdf?api-version=2.0"
             body_data = {"assessmentId": assessment_id}
             
-            data = json.dumps(body_data).encode("utf-8")
-            req = urllib.request.Request(url, data=data, method="POST")
-            req.add_header("Content-Type", "application/json")
-            req.add_header("Authorization", f"{token_type} {access_token}")
-            
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                pdf_content = resp.read()
+            from curl_cffi import requests as curl_requests
+            resp = curl_requests.post(
+                url,
+                json=body_data,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"{token_type} {access_token}"
+                },
+                impersonate="chrome110",
+                timeout=120
+            )
+            pdf_content = resp.content
             
             # Send email with PDF attachment
             email_result = send_email_smtp(
@@ -565,13 +584,18 @@ def send_muinmos_assessment_kycpdf_single_user(base_api_url: str, token_type: st
         url = f"{base_api_url}/api/assessment/KYCpdf?api-version=2.0"
         body_data = {"assessmentId": assessment_id}
         
-        data = json.dumps(body_data).encode("utf-8")
-        req = urllib.request.Request(url, data=data, method="POST")
-        req.add_header("Content-Type", "application/json")
-        req.add_header("Authorization", f"{token_type} {access_token}")
-        
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            pdf_content = resp.read()
+        from curl_cffi import requests as curl_requests
+        resp = curl_requests.post(
+            url,
+            json=body_data,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"{token_type} {access_token}"
+            },
+            impersonate="chrome110",
+            timeout=120
+        )
+        pdf_content = resp.content
         
         # Send email with PDF attachment
         email_result = send_email_smtp(
@@ -658,13 +682,15 @@ def get_muinmos_question(base_api_url: str, assessment_id: str) -> Dict[str, Any
     try:
         url = f"{base_api_url}/api/assessment/{assessment_id}/question?api-version=2.0"
         
-        req = urllib.request.Request(url, method="GET")
-        
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            response_body = resp.read().decode("utf-8")
-            question_data = json.loads(response_body)
-        
-        return {"statusCode": 200, "body": {"result": question_data}}
+        from curl_cffi import requests as curl_requests
+        resp = curl_requests.get(
+            url,
+            impersonate="chrome110",
+            timeout=30
+        )
+        if resp.status_code >= 400:
+            return {"statusCode": resp.status_code, "body": {"error": "Failed to get assessment questions."}}
+        return {"statusCode": 200, "body": {"result": resp.json()}}
     except Exception:
         return {"statusCode": 400, "body": {"error": "Failed to get assessment questions."}}
 
@@ -677,16 +703,20 @@ def submit_muinmos_answer(base_api_url: str, token_type: str, access_token: str,
     try:
         url = f"{base_api_url}/api/assessment/{assessment_id}/question?api-version=2.0"
         
-        data = json.dumps(answer).encode("utf-8")
-        req = urllib.request.Request(url, data=data, method="POST")
-        req.add_header("Content-Type", "application/json")
-        req.add_header("Authorization", f"{token_type} {access_token}")
-        
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            response_body = resp.read().decode("utf-8")
-            result = json.loads(response_body)
-        
-        return {"statusCode": 200, "body": {"result": result}}
+        from curl_cffi import requests as curl_requests
+        resp = curl_requests.post(
+            url,
+            json=answer,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"{token_type} {access_token}"
+            },
+            impersonate="chrome110",
+            timeout=30
+        )
+        if resp.status_code >= 400:
+            return {"statusCode": resp.status_code, "body": {"error": "Failed to submit answer."}}
+        return {"statusCode": 200, "body": {"result": resp.json()}}
     except Exception:
         return {"statusCode": 400, "body": {"error": "Failed to submit answer."}}
 
