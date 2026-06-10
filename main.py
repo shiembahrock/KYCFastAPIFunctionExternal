@@ -762,7 +762,7 @@ def muinmos_callback_directly(event: Dict[str, Any]) -> Dict[str, Any]:
         assessment_id = payload.get("id")
         reference_key = payload.get("referenceKey")
 
-        if notification_type == "0" and WEBHOOK_TARGET_LAMBDA_ARN:
+        if notification_type in ("0", 0) and WEBHOOK_TARGET_LAMBDA_ARN:
             try:
                 lambda_client = boto3.client("lambda")
                 lambda_client.invoke(
