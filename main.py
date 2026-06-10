@@ -20,6 +20,7 @@ SMTP_GMAIL_HOST = os.getenv("SMTP_GMAIL_HOST", "")
 SMTP_GMAIL_PORT = os.getenv("SMTP_GMAIL_PORT", "587")
 OUTSYSTEM_HEADER_AUTH = os.getenv("OUTSYSTEM_HEADER_AUTH", "")
 MUINMOS_API_KEY = os.getenv("MUINMOS_API_KEY", "")
+RECAPTCHA_SECRET_KEY = os.getenv("RECAPTCHA_SECRET_KEY", "")
 # Note: If this Lambda runs inside a VPC, it needs outbound access to the Lambda
 # API to invoke another function. Use a NAT Gateway or a VPC Interface Endpoint
 # for Lambda (com.amazonaws.<region>.lambda). The target Lambda can be in or out
@@ -788,3 +789,29 @@ def muinmos_callback_directly(event: Dict[str, Any]) -> Dict[str, Any]:
         })
     except Exception as e:
         return _http_response(200, {"success": False, "error": str(e)})
+
+
+def submit_contact_us(to_email: str, subject: str, body: str, is_html: bool = False, attachment: Dict[str, Any] = None, recaptcha_token: str = None) -> Dict[str, Any]:
+    """Verify reCAPTCHA then send contact us email via SMTP"""
+    if not recaptcha_token:
+        return {"success": False, "error": "Missing recaptcha_token"}
+
+    if not RECAPTCHA_SECRET_KEY:
+        return {"success": False, "error": "RECAPTCHA_SECRET_KEY not configured"}
+
+    try:
+        verify_data = urllib.parse.urlencode({
+            "secret": RECAPTCHA_SECRET_KEY,
+            "response": recaptcha_token
+        }).encode("utf-8")
+        req = urllib.request.Request("https://www.google.com/recaptcha/api/siteverify", data=verify_data, method="POST")
+        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+
+        if not result.get("success") or result.get("score", 0) <= 0.5:
+            return {"success": False, "error": "reCAPTCHA verification failed", "score": result.get("score")}
+
+        return send_email_smtp(to_email=to_email, subject=subject, body=body, is_html=is_html, attachment=attachment)
+    except Exception as e:
+        return {"success": False, "error": str(e)}

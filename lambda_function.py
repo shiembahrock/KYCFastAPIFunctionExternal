@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 from typing import Any, Dict
-from main import create_checkout_session, stripe_webhook, send_email, send_email_smtp, get_muinmos_token, create_assessment, muinmos_assessment_search, get_muinmos_assessment_result, send_muinmos_assessment_kycpdf, send_muinmos_assessment_kycpdf_single_user, muinmos_callback_from_outsystem, muinmos_callback_directly, get_muinmos_question, submit_muinmos_answer
+from main import create_checkout_session, stripe_webhook, send_email, send_email_smtp, get_muinmos_token, create_assessment, muinmos_assessment_search, get_muinmos_assessment_result, send_muinmos_assessment_kycpdf, send_muinmos_assessment_kycpdf_single_user, muinmos_callback_from_outsystem, muinmos_callback_directly, get_muinmos_question, submit_muinmos_answer, submit_contact_us
 
 # Test auto deploy #1
 
@@ -114,6 +114,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     if route_key and "muinmoscallbackdirectly" in str(route_key).lower():
         return muinmos_callback_directly(event)
             
+    if route_key and "submitcontactus" in str(route_key).lower():
+        from main import _parse_event_body
+        payload = _parse_event_body(event)
+        result = submit_contact_us(
+            to_email=payload.get("to_email"),
+            subject=payload.get("subject"),
+            body=payload.get("body"),
+            is_html=payload.get("is_html", False),
+            attachment=payload.get("attachment"),
+            recaptcha_token=payload.get("recaptcha_token")
+        )
+        return {
+            "statusCode": 200 if result.get("success") else 400,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps(result)
+        }
+
     if route_key and "sendemailsmtp" in str(route_key).lower():
         from main import _parse_event_body
         payload = _parse_event_body(event)
