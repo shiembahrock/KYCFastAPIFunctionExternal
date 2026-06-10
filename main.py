@@ -809,8 +809,8 @@ def submit_contact_us(to_email: str, subject: str, body: str, is_html: bool = Fa
         with urllib.request.urlopen(req, timeout=10) as resp:
             result = json.loads(resp.read().decode("utf-8"))
 
-        if not result.get("success") or result.get("score", 0) <= 0.5:
-            return {"success": False, "error": "reCAPTCHA verification failed", "score": result.get("score")}
+        if not result.get("success"):
+            return {"success": False, "error": "reCAPTCHA verification failed"}
 
         return send_email_smtp(to_email=to_email, subject=subject, body=body, is_html=is_html, attachment=attachment)
     except Exception as e:
