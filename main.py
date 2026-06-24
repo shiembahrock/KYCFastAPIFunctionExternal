@@ -13,7 +13,7 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 WEBHOOK_TARGET_LAMBDA_ARN = os.getenv("WEBHOOK_TARGET_LAMBDA_ARN", "")
 DEFAULT_CURRENCY = os.getenv("STRIPE_DEFAULT_CURRENCY", "usd")
 SES_FROM_EMAIL = os.getenv("SES_FROM_EMAIL", "")
-AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+APP_AWS_REGION = os.getenv("APP_AWS_REGION", "us-east-1")
 SMTP_GMAIL_USER = os.getenv("SMTP_GMAIL_USER", "")
 SMTP_GMAIL_PASSWORD = os.getenv("SMTP_GMAIL_PASSWORD", "")
 SMTP_GMAIL_HOST = os.getenv("SMTP_GMAIL_HOST", "")
@@ -244,7 +244,7 @@ def send_email(to_email: str, subject: str, body: str, is_html: bool = False, at
         from email.mime.text import MIMEText
         from email.mime.application import MIMEApplication
         
-        ses_client = boto3.client('ses', region_name=AWS_REGION)
+        ses_client = boto3.client('ses', region_name=APP_AWS_REGION)
         
         if attachment:
             # Use raw email for attachments
