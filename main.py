@@ -812,6 +812,7 @@ def submit_contact_us(to_email: str, subject: str, body: str, is_html: bool = Fa
         if not result.get("success"):
             return {"success": False, "error": "reCAPTCHA verification failed"}
 
-        return send_email_smtp(to_email=to_email, subject=subject, body=body, is_html=is_html, attachment=attachment)
+        # return send_email_smtp(to_email=to_email, subject=subject, body=body, is_html=is_html, attachment=attachment)
+        return send_email(to_email=to_email, subject=subject, body=body, is_html=is_html, attachment=attachment)
     except Exception as e:
         return {"success": False, "error": str(e)}
