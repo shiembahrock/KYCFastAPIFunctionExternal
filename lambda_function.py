@@ -131,6 +131,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "body": json.dumps(result)
         }
 
+    if route_key and "sendemail" in str(route_key).lower():
+        from main import _parse_event_body
+        payload = _parse_event_body(event)
+        result = send_email(
+            to_email=payload.get("to_email"),
+            subject=payload.get("subject"),
+            body=payload.get("body"),
+            is_html=payload.get("is_html", False),
+            attachment=payload.get("attachment")
+        )
+        return {
+            "statusCode": 200 if result.get("success") else 400,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps(result)
+        }
+    
     if route_key and "sendemailsmtp" in str(route_key).lower():
         from main import _parse_event_body
         payload = _parse_event_body(event)
